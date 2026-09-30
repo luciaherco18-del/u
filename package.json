@@ -1,0 +1,13 @@
+{
+  "name": "higgsfield-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cliente mínimo para la API de Higgsfield (platform.higgsfield.ai), basado en open-higgsfield",
+  "bin": { "hf": "src/cli.js" },
+  "scripts": {
+    "hf": "node src/cli.js",
+    "check": "node src/cli.js check"
+  },
+  "engines": { "node": ">=20.6" }
+}
