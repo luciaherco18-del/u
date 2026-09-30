@@ -44,6 +44,9 @@ export const VIDEO_MODELS = {
   "hailuo-2.3": "minimax/hailuo-2.3/standard/text-to-video",
   "pixverse-6": "pixverse/v6/text-to-video",
   "grok-imagine-video-1.5": "xai/grok-imagine-video/v1.5/reference-to-video",
+  // Genjutsu (docs.higgsfield.ai/docs/models/genjutsu): video_url + image_urls (1-8), vídeo de 4-30 s
+  "genjutsu-motion": "higgsfield/genjutsu/motion-transfer/v1.0",
+  "genjutsu-swap": "higgsfield/genjutsu/object-swap/v1.0",
 };
 
 export const MODELS = { ...IMAGE_MODELS, ...VIDEO_MODELS };

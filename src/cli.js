@@ -5,12 +5,14 @@
 //   node src/cli.js check
 //   node src/cli.js generate soul-2 "a cat astronaut" --aspect_ratio 9:16 --resolution 1080p
 //   node src/cli.js generate kling-3-turbo "..." --image_url https://... --path kling-video/v3.0-turbo/image-to-video
+//   node src/cli.js generate genjutsu-swap "cambia la botella por mi producto" --video_url clip.mp4 --image_urls producto.jpg
+//   node src/cli.js upload <archivo>
 //   node src/cli.js submit <modelo> '<json>'
 //   node src/cli.js status <request_id>
 //   node src/cli.js wait <request_id>
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, extname, join } from "node:path";
 
 import { createClient, outputUrls } from "./higgsfield.js";
 import { MODELS, IMAGE_MODELS, resolveModel } from "./models.js";
@@ -59,6 +61,39 @@ function coerce(value) {
   return value;
 }
 
+const CONTENT_TYPES = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".wav": "audio/wav",
+  ".mp4": "video/mp4",
+};
+
+async function uploadFile(c, file) {
+  const contentType = CONTENT_TYPES[extname(file).toLowerCase()];
+  if (!contentType) throw new Error(`Tipo de archivo no admitido: ${file} (usa jpg, png, webp, gif, wav o mp4)`);
+  const url = await c.upload(readFileSync(file), contentType);
+  console.error(`Subido ${file} -> ${url}`);
+  return url;
+}
+
+/** Campos *_url / *_urls: las rutas a archivos locales se suben y se sustituyen por su URL pública.
+    Varios archivos en un campo *_urls se separan con comas. */
+async function uploadLocalFiles(c, input) {
+  const resolve = (value) => (typeof value === "string" && !/^https?:\/\//.test(value) && existsSync(value) ? uploadFile(c, value) : value);
+  for (const [key, value] of Object.entries(input)) {
+    if (key.endsWith("_urls")) {
+      const list = Array.isArray(value) ? value : String(value).split(",").map((item) => item.trim()).filter(Boolean);
+      input[key] = await Promise.all(list.map(resolve));
+    } else if (key.endsWith("_url")) {
+      input[key] = await resolve(value);
+    }
+  }
+  return input;
+}
+
 async function download(urls, dir) {
   mkdirSync(dir, { recursive: true });
   const saved = [];
@@ -99,6 +134,11 @@ async function main() {
       }
       return;
     }
+    case "upload": {
+      if (!args[0]) throw new Error("Uso: upload <archivo>");
+      console.log(await uploadFile(client(), args[0]));
+      return;
+    }
     case "submit": {
       const [model, json = "{}"] = args;
       console.log(JSON.stringify(await client().submit(resolveModel(model), JSON.parse(json)), null, 2));
@@ -115,11 +155,12 @@ async function main() {
     }
     case "generate": {
       const [model, prompt, ...rest] = args;
-      if (!model || !prompt) throw new Error('Uso: generate <modelo> "<prompt>" [--campo valor ...]');
+      if (!model || prompt === undefined) throw new Error('Uso: generate <modelo> "<prompt>" [--campo valor ...]  (prompt puede ser "")');
       const { path, out = "out", ...input } = parseFlags(rest);
       const target = typeof path === "string" ? path : resolveModel(model);
       const c = client();
-      const queued = await c.submit(target, { prompt, ...input });
+      await uploadLocalFiles(c, input);
+      const queued = await c.submit(target, { ...(prompt ? { prompt } : {}), ...input });
       console.error(`Encolado ${queued.request_id} en ${target}`);
       const result = await c.wait(queued.request_id, { onUpdate: progress });
       if (result.status !== "completed") {
@@ -133,7 +174,7 @@ async function main() {
       return;
     }
     default:
-      console.log(`Comandos: models | check | generate <modelo> "<prompt>" [--campo valor] | submit <modelo> '<json>' | status <id> | wait <id>`);
+      console.log(`Comandos: models | check | upload <archivo> | generate <modelo> "<prompt>" [--campo valor] | submit <modelo> '<json>' | status <id> | wait <id>`);
       if (command) process.exitCode = 1;
   }
 }

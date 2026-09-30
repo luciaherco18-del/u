@@ -4,9 +4,12 @@
 //   POST {base}/{model-path}             -> { request_id, status, status_url, cancel_url }
 //   GET  {base}/requests/{id}/status     -> { request_id, status, images?: [{url}], video?: {url}, error? }
 //
+//   POST {base}/files/generate-upload-url -> { public_url, upload_url, upload_headers }  (subida de archivos)
+//
 // Autenticación: cabecera "Authorization: Key <id>:<secret>".
 
-export const DEFAULT_BASE_URL = "https://platform.higgsfield.ai";
+// api.higgsfield.ai es el origen documentado (docs.higgsfield.ai); platform.higgsfield.ai responde igual.
+export const DEFAULT_BASE_URL = "https://api.higgsfield.ai";
 
 /** Estados de los que la plataforma ya no sale. */
 export const TERMINAL = new Set(["completed", "failed", "nsfw", "canceled"]);
@@ -93,7 +96,19 @@ export function createClient({ apiKey, baseUrl = DEFAULT_BASE_URL, fetch: fetchI
     return result;
   }
 
-  return { submit, status, wait, generate };
+  /** Sube bytes a la plataforma y devuelve una URL pública utilizable como image_url, video_url, etc. */
+  async function upload(data, contentType) {
+    const target = await send("POST", "/files/generate-upload-url", { content_type: contentType });
+    const response = await fetchImpl(target.upload_url, {
+      method: "PUT",
+      headers: target.upload_headers ?? { "Content-Type": contentType },
+      body: data,
+    });
+    if (!response.ok) throw new PlatformError(response.status, { detail: `Upload failed (${response.status})` });
+    return target.public_url;
+  }
+
+  return { submit, status, wait, generate, upload };
 }
 
 /** URLs de salida de un estado completado (imágenes y/o vídeo). */
