@@ -22,6 +22,20 @@ recibir el resultado directamente en la conversación.
 4. Si la descarga da 403, es la política de red del entorno: pide que se permita
    el dominio que aparezca en la URL (p.ej. `d3u0tzju9qaucj.cloudfront.net`).
 
+## Cuando el usuario pida montar/editar un anuncio
+
+El usuario hace anuncios (voz de ElevenLabs + textos + transiciones + música). Se montan aquí con
+`ffmpeg`, que se instala solo al iniciar la sesión (`scripts/setup-ffmpeg.sh`, hook en `.claude/settings.json`).
+Si `ffmpeg` no está, ejecuta ese script.
+
+- Por defecto: 9:16 (1080x1920), 20–30 s, estructura gancho → problema → producto → oferta.
+- Textos: este ffmpeg no tiene `drawtext`; usa subtítulos ASS (`-vf ass=textos.ass`), letra
+  blanca gruesa con borde negro estilo TikTok (fuentes disponibles: DejaVu Sans Bold, FreeSans Bold).
+- Transiciones con `xfade`, zoom suave con `zoompan`, la música baja cuando habla la voz (`sidechaincompress`).
+- Clips: los que mande el usuario o generados con Higgsfield (solo los necesarios, gastan créditos).
+- Trabaja en `out/`, revisa fotogramas antes de entregar y envía el `.mp4` final con la herramienta de enviar archivos.
+- Los cambios los pide por chat ("texto más grande", "quita el clip 2"...): rehaz y reenvía.
+
 ## Notas
 
 - Cada generación gasta créditos del usuario; los vídeos bastante más. Genera solo lo que pida.
